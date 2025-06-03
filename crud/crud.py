@@ -35,25 +35,38 @@ def require_login(f):
 def registrar():
     """Registrar usuario"""
     if request.method == "POST":
+        usuario = request.form.get("usuario")
+        password = request.form.get("password")
 
-        # Ensure username was submitted
-        if not request.form.get("usuario"):
-            return "el campo usuario es oblicatorio"
+        # Validación de campos
+        if not usuario:
+            flash("El campo usuario es obligatorio", "danger")
+            return redirect(url_for('registrar'))
+        elif not password:
+            flash("El campo contraseña es obligatorio", "danger")
+            return redirect(url_for('registrar'))
 
-        # Ensure password was submitted
-        elif not request.form.get("password"):
-            return "el campo contraseña es oblicatorio"
-
-        passhash=generate_password_hash(request.form.get("password"), method='scrypt', salt_length=16)
         cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO usuarios (usuario, hash) VALUES (%s,%s)", (request.form.get("usuario"), passhash[17:]))
-        if mysql.connection.affected_rows():
-            flash('Se agregó un usuario')  # usa sesión
-            logging.info("se agregó un usuario")
+
+        # Verificar si ya existe el usuario
+        cur.execute("SELECT id FROM usuarios WHERE usuario = %s", (usuario,))
+        existente = cur.fetchone()
+
+        if existente:
+            flash("El nombre de usuario ya está registrado", "warning")
+            return redirect(url_for('registrar'))
+
+        # Insertar nuevo usuario
+        passhash = generate_password_hash(password, method='scrypt', salt_length=16)
+        cur.execute("INSERT INTO usuarios (usuario, hash) VALUES (%s, %s)", (usuario, passhash))
         mysql.connection.commit()
+
+        flash("Cuenta creada correctamente", "success")
+        logging.info("Se registró un nuevo usuario: %s", usuario)
         return redirect(url_for('index'))
 
     return render_template('registrar.html')
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
