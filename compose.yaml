@@ -1,61 +1,9 @@
 services:
-  mariadb:
-    image: mariadb
-    container_name: mariadb
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
-      - TZ=America/Argentina/Buenos_Aires
-    volumes:
-      - ./mariadb:/config
-    ports:
-      - 3306:3306
-    restart: unless-stopped
-  phpmyadmin:
-    image: phpmyadmin
-    container_name: phpmyadmin
-    restart: always
-    environment:
-      - PMA_HOST=mariadb
-      - PMA_ABSOLUTE_URI=https://${DOMINIO}:${PUERTO}/phpmyadmin/
-    ports:
-      - 8080:80
-    depends_on:
-      - mariadb
-  portainer:
-    image: portainer/portainer-ce
-    container_name: portainer
-    ports:
-      - 9443:9443
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
-    restart: unless-stopped
-  swag:
-    image: lscr.io/linuxserver/swag:latest
-    container_name: swag
-    cap_add:
-      - NET_ADMIN
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Argentina/Buenos_Aires
-      - URL=${DOMINIO}
-      - VALIDATION=dns
-      - DNSPLUGIN=duckdns
-      - SUBDOMAINS=
-    volumes:
-      - ./swag:/config
-    ports:
-      - ${PUERTO}:443/tcp
-      - 80:80
-    restart: unless-stopped
-  crud:
+  crud1:
     image: crud
     build:
       context: ./crud
-    container_name: crud
+    container_name: crud1
     environment:
       - MYSQL_USER=${CRUD_USER}
       - MYSQL_PASSWORD=${CRUD_PASS}
@@ -65,7 +13,10 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
-    depends_on:
-      - mariadb
-volumes:
-  portainer_data:
+    networks:
+      - network1
+
+networks:
+  network1:
+    name: docker_iot_default
+    external: true

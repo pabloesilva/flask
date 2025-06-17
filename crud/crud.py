@@ -58,7 +58,7 @@ def registrar():
 
         # Insertar nuevo usuario
         passhash = generate_password_hash(password, method='scrypt', salt_length=16)
-        cur.execute("INSERT INTO usuarios (usuario, hash) VALUES (%s, %s)", (usuario, passhash))
+        cur.execute("INSERT INTO usuarios (usuario, hash) VALUES (%s, %s)", (usuario, passhash[17:]))
         mysql.connection.commit()
 
         flash("Cuenta creada correctamente", "success")
