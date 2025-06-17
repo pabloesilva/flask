@@ -4,8 +4,31 @@ import os, logging
 from functools import wraps
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
+import asyncio
+import aiomqtt
+import ssl
 
-logging.basicConfig(format='%(asctime)s - CRUD - %(levelname)s - %(message)s', level=logging.INFO)
+async def publicar_mqtt(sensor_id, subtopico, valor):
+    tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    tls_context.verify_mode = ssl.CERT_REQUIRED
+    tls_context.check_hostname = True
+    tls_context.load_default_certs()
+
+    async with aiomqtt.Client(
+        hostname=os.environ['DOMINIO'],
+        port=int(os.environ['PUERTO_MQTTS']),
+        username=os.environ['MQTT_USR'],
+        password=os.environ['MQTT_PASS'],
+        tls_context=tls_context
+    ) as client:
+        topico = f"{sensor_id}/{subtopico}"
+        await client.publish(topico, str(valor), qos=1)
+        
+logging.basicConfig(
+    format='%(asctime)s - CRUD - %(levelname)s - %(message)s', 
+    level=logging.INFO
+)
+
 
 app = Flask(__name__)
 
@@ -16,10 +39,15 @@ app.wsgi_app = ProxyFix(
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
 app.config["MYSQL_USER"] = os.environ["MYSQL_USER"]
 app.config["MYSQL_PASSWORD"] = os.environ["MYSQL_PASSWORD"]
+# base de datos de agenda 
 app.config["MYSQL_DB"] = os.environ["MYSQL_DB"]
+#base de datos de sensores
+#app.config["MYSQL_DB"] = os.environ["MYSQL_MQTT_DB"]
 app.config["MYSQL_HOST"] = os.environ["MYSQL_HOST"]
 app.config['PERMANENT_SESSION_LIFETIME']=180
+
 mysql = MySQL(app)
+
 
 # rutas
 
@@ -65,7 +93,7 @@ def registrar():
         logging.info("Se registró un nuevo usuario: %s", usuario)
         return redirect(url_for('index'))
 
-    return render_template('registrar.html')
+    return render_template("registrar.html", ocultar_navbar=True)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -90,9 +118,53 @@ def login():
             else:
                 flash('usuario o contraseña incorrecto')
                 return redirect(url_for('login'))
-    return render_template('login.html')
+    return render_template("login.html", ocultar_navbar=True)
 
-@app.route('/')
+@app.route('/mqtt')
+@require_login
+def panel_mqtt():
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT DISTINCT sensor_id FROM sensores_remotos.mediciones")
+    sensores = [row[0] for row in cur.fetchall()]
+    cur.close()
+    return render_template("panel.html", sensores=sensores)
+
+@app.route("/enviar_comando", methods=["POST"])
+@require_login
+def enviar_comando():
+    sensor_id = request.form.get("sensor_id")
+    comando = request.form.get("comando")
+    valor = request.form.get("valor", "")
+
+    if not sensor_id or not comando:
+        flash("Faltan datos para enviar el comando", "danger")
+        return redirect(url_for("panel_mqtt"))
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        if comando == "destello":
+            loop.run_until_complete(publicar_mqtt(sensor_id, "destello", "1"))
+            logging.info(f"Usuario {session.get('user_id')} envió 'destello' al nodo {sensor_id}")
+        elif comando == "setpoint":
+            loop.run_until_complete(publicar_mqtt(sensor_id, "setpoint", valor))
+            logging.info(f"Usuario {session.get('user_id')} envió 'setpoint={valor}' al nodo {sensor_id}")
+        else:
+            logging.warning(f"Comando desconocido: {comando}")
+            flash("Comando no reconocido", "warning")
+            return redirect(url_for("panel_mqtt"))
+
+        flash(f"Comando '{comando}' enviado al nodo {sensor_id}", "success")
+    except Exception as e:
+        logging.error(f"Error al enviar comando MQTT: {e}")
+        flash("Ocurrió un error al enviar el comando", "danger")
+    finally:
+        loop.close()
+
+    return redirect(url_for("panel_mqtt"))
+
+@app.route('/agenda')
 @require_login
 def index():
     cur = mysql.connection.cursor()

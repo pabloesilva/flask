@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<div class="row">
+  <div class="col-md-7 mx-auto">
+    <div class="card card-body">
+      <form action="{{ url_for('enviar_comando') }}" method="POST" id="formulario-comando">
+        <legend>Enviar comando a nodo</legend>
+
+        <!-- Selección de nodo -->
+        <div class="form-group">
+          <label for="sensor_id" class="form-label mt-3">Nodo destino (sensor_id)</label>
+          <select class="form-select" id="sensor_id" name="sensor_id" required>
+            <option value="" disabled selected>Seleccione un nodo</option>
+            {% for s in sensores %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Tipo de comando -->
+        <div class="form-group mt-4">
+          <label class="form-label">Acción</label>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="comando" id="radio_destello" value="destello" checked>
+            <label class="form-check-label" for="radio_destello">Destello</label>
+            
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="comando" id="radio_setpoint" value="setpoint" >
+            <label class="form-check-label" for="radio_setpoint">Ajustar Setpoint</label>
+          </div>
+        </div>
+
+        <!-- Ingreso de setpoint (solo si aplica) -->
+        <div class="form-group mt-3" id="grupo-setpoint">
+          <label for="valor" class="form-label">Setpoint (°C)</label>
+          <input type="number" step="1" min="0" class="form-control" id="valor" name="valor"
+                 placeholder="Ej: 25" value="25">
+        </div>
+
+        <!-- Botón de envío -->
+        <button type="submit" class="btn btn-primary mt-4">Enviar comando</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- JS para controlar visibilidad del input -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const radioSetpoint = document.getElementById("radio_setpoint");
+    const radioDestello = document.getElementById("radio_destello");
+    const grupoSetpoint = document.getElementById("grupo-setpoint");
+    const valorInput = document.getElementById("valor");
+
+    const actualizarVisibilidad = () => {
+      if (radioSetpoint.checked) {
+        grupoSetpoint.style.display = "block";
+        valorInput.required = true;
+      } else {
+        grupoSetpoint.style.display = "none";
+        valorInput.required = false;
+      }
+    };
+
+    actualizarVisibilidad();
+
+    radioSetpoint.addEventListener("change", actualizarVisibilidad);
+    radioDestello.addEventListener("change", actualizarVisibilidad);
+  });
+</script>
+
+{% endblock %}

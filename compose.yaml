@@ -10,6 +10,11 @@ services:
       - MYSQL_DB=${CRUD_DB}
       - MYSQL_HOST=${MARIADB_SERVER}
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - MYSQL_MQTT_DB=${MARIADB_DB}
+      - MQTT_USR=${MQTT_USR}
+      - MQTT_PASS=${MQTT_PASS}
+      - PUERTO_MQTTS=${PUERTO_MQTTS}
+      - DOMINIO=${DOMINIO}
     ports:
       - "8000:8000"
     restart: unless-stopped
